@@ -1,41 +1,5 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-LOG_FILE=".ejson-detect.log"
-
-{
-  echo "==== [EJSON] DETECT DEBUG $(date -u) ===="
-  echo "pwd: $(pwd)"
-  echo
-  echo "-- ls -la (app root) --"
-  ls -la || true
-  echo
-  if [ -d "config" ]; then
-    echo "-- ls -la config/ --"
-    ls -la config || true
-  else
-    echo "config/: MISSING"
-  fi
-  echo
-  if [ -d "config/secrets" ]; then
-    echo "-- ls -la config/secrets/ --"
-    ls -la config/secrets || true
-  else
-    echo "config/secrets/: MISSING"
-  fi
-  echo "==== [EJSON] END DETECT DEBUG ===="
-} > "$LOG_FILE" 2>&1 || true
-
-# Debug override: force detect success so compile can show logs
-if [ "${EJSON_DEBUG_DETECT:-0}" = "1" ]; then
-  echo "EJSON"
-  exit 0
-fi
-
-# Normal detection
-if [ -d "config/secrets" ] && ls config/secrets/*.ejson >/dev/null 2>&1; then
-  echo "EJSON"
-  exit 0
-else
-  exit 1
-fi
+echo "ejson"
+exit 0
