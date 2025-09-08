@@ -43,16 +43,18 @@ fi
 EJSON_VERSION=${EJSON_VERSION:-1.5.3}
 step "Installing EJSON v$EJSON_VERSION"
 
-cd /tmp
-curl -s -L -o ejson.deb "https://github.com/Shopify/ejson/releases/download/v${EJSON_VERSION}/ejson_${EJSON_VERSION}_linux_amd64.deb"
-dpkg -x ejson.deb ejsonpkg
 mkdir -p "$BUILD_DIR/bin"
+cd /tmp
 
-if [ ! -f "ejsonpkg/usr/local/bin/ejson" ]; then
-  fail "EJSON binary not found in extracted package"
+curl -s -L -o ejson.tar.gz \
+  "https://github.com/Shopify/ejson/releases/download/v${EJSON_VERSION}/ejson_${EJSON_VERSION}_linux_amd64.tar.gz"
+
+tar -xzf ejson.tar.gz
+if [ ! -f "ejson" ]; then
+  fail "EJSON binary missing from tarball"
 fi
 
-cp ejsonpkg/usr/local/bin/ejson "$BUILD_DIR/bin/"
+mv ejson "$BUILD_DIR/bin/"
 chmod +x "$BUILD_DIR/bin/ejson"
 step "Installed ejson binary into slug bin/"
 
