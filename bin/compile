@@ -13,14 +13,6 @@ step "BUILD_DIR: $BUILD_DIR"
 step "CACHE_DIR: $CACHE_DIR"
 step "ENV_DIR:   $ENV_DIR"
 
-# Show what detect captured (from app root at detect time)
-if [ -f "$BUILD_DIR/.ejson-detect.log" ]; then
-  step "bin/detect debug output:"
-  sed 's/^/       /' "$BUILD_DIR/.ejson-detect.log" || true
-else
-  fail "No .ejson-detect.log found; detect may not have written it"
-fi
-
 # Show current build view
 step "Top-level contents of BUILD_DIR:"
 ls -la "$BUILD_DIR" || true
