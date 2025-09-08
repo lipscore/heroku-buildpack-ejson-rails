@@ -2,31 +2,19 @@
 set -euo pipefail
 
 step() { echo "-----> $*"; }
-fail() { echo " !!    ERROR: $*" >&2; exit 1; }
 
-# Get absolute path of the script
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# Assume app root is 2 levels above (adjust if your buildpack is nested differently)
-APP_ROOT="$SCRIPT_DIR/../.."
+step "DEBUG: Running EJSON buildpack detect phase"
+step "Current working directory: $(pwd)"
 
-step "Detecting EJSON buildpack"
-step "Script directory: $SCRIPT_DIR"
-step "App root directory (expected): $APP_ROOT"
+step "Top-level files:"
+ls -la || true
 
-CONFIG_SECRETS="$APP_ROOT/config/secrets"
-step "Checking for config/secrets at: $CONFIG_SECRETS"
+step "Contents of config/:"
+ls -la config || true
 
-if [ ! -d "$CONFIG_SECRETS" ]; then
-  fail "config/secrets directory not found"
-fi
+step "Contents of config/secrets/:"
+ls -la config/secrets || true
 
-EJSON_FILES=$(ls "$CONFIG_SECRETS"/*.ejson 2>/dev/null || true)
-if [ -z "$EJSON_FILES" ]; then
-  fail "No .ejson files found in config/secrets"
-fi
-
-step "EJSON buildpack detected"
-step "Found the following .ejson files:"
-echo "$EJSON_FILES"
-
+# Force success so logs aren't hidden
+echo "EJSON"
 exit 0
