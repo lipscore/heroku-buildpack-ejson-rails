@@ -1,11 +1,4 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-step() { echo "-----> $*"; }
-
-step "Releasing EJSON buildpack"
-cat <<EOF
----
-config:
-  PATH: bin:\$PATH
-EOF
+echo "{}"
