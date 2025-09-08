@@ -3,7 +3,6 @@ set -euo pipefail
 
 LOG_FILE=".ejson-detect.log"
 
-# Always record a detailed snapshot of what detect sees
 {
   echo "==== [EJSON] DETECT DEBUG $(date -u) ===="
   echo "pwd: $(pwd)"
@@ -21,22 +20,19 @@ LOG_FILE=".ejson-detect.log"
   if [ -d "config/secrets" ]; then
     echo "-- ls -la config/secrets/ --"
     ls -la config/secrets || true
-    echo
-    echo "-- .ejson files --"
-    ls config/secrets/*.ejson 2>/dev/null || echo "no .ejson files"
   else
     echo "config/secrets/: MISSING"
   fi
   echo "==== [EJSON] END DETECT DEBUG ===="
-} >> "$LOG_FILE" 2>&1 || true
+} > "$LOG_FILE" 2>&1 || true
 
-# Debug mode: force detection success so compile runs and can print the log
+# Debug override: force detect success so compile can show logs
 if [ "${EJSON_DEBUG_DETECT:-0}" = "1" ]; then
   echo "EJSON"
   exit 0
 fi
 
-# Production detection
+# Normal detection
 if [ -d "config/secrets" ] && ls config/secrets/*.ejson >/dev/null 2>&1; then
   echo "EJSON"
   exit 0
