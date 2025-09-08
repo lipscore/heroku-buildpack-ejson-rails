@@ -13,33 +13,23 @@ step "BUILD_DIR: $BUILD_DIR"
 step "CACHE_DIR: $CACHE_DIR"
 step "ENV_DIR:   $ENV_DIR"
 
-# Show current build view
-step "Top-level contents of BUILD_DIR:"
-ls -la "$BUILD_DIR" || true
-
-if [ -d "$BUILD_DIR/config" ]; then
-  step "Contents of config/:"
-  ls -la "$BUILD_DIR/config" || true
-else
-  fail "config/ not present in BUILD_DIR"
-fi
-
-if [ -d "$BUILD_DIR/config/secrets" ]; then
-  step "Contents of config/secrets/:"
-  ls -la "$BUILD_DIR/config/secrets" || true
-else
+# Ensure config/secrets exists
+if [ ! -d "$BUILD_DIR/config/secrets" ]; then
   fail "config/secrets/ not present in BUILD_DIR"
 fi
 
-EJSON_MATCH=$(ls "$BUILD_DIR"/config/secrets/*.ejson 2>/dev/null || true)
-if [ -n "$EJSON_MATCH" ]; then
-  step "Detected .ejson files:"
-  echo "$EJSON_MATCH" | sed 's/^/       /'
-else
-  fail "No .ejson files under $BUILD_DIR/config/secrets"
+# Detect .ejson file
+EJSON_ENV=${EJSON_ENVIRONMENT:-$RAILS_ENV}
+EJSON_FILE="$BUILD_DIR/config/secrets/${EJSON_ENV}.ejson"
+JSON_FILE="$BUILD_DIR/config/secrets/${EJSON_ENV}.json"
+
+if [ ! -f "$EJSON_FILE" ]; then
+  fail "Missing EJSON file: $EJSON_FILE"
 fi
 
-# 1. Install EJSON binary
+step "Found EJSON file: $EJSON_FILE"
+
+# Install EJSON binary
 EJSON_VERSION=${EJSON_VERSION:-1.5.3}
 step "Installing EJSON v$EJSON_VERSION"
 
@@ -48,67 +38,32 @@ cd /tmp
 
 curl -s -L -o ejson.tar.gz \
   "https://github.com/Shopify/ejson/releases/download/v${EJSON_VERSION}/ejson_${EJSON_VERSION}_linux_amd64.tar.gz"
-
 tar -xzf ejson.tar.gz
 if [ ! -f "ejson" ]; then
   fail "EJSON binary missing from tarball"
 fi
-
 mv ejson "$BUILD_DIR/bin/"
 chmod +x "$BUILD_DIR/bin/ejson"
 step "Installed ejson binary into slug bin/"
 
-# 2. Install runtime hook
-PROFILED_DIR="$BUILD_DIR/.profile.d"
-mkdir -p "$PROFILED_DIR"
-
-cat > "$PROFILED_DIR/50_ejson-decrypt.sh" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-
-step() { echo "-----> [EJSON] $*"; }
-fail() { echo " !!    [EJSON] ERROR: $*" >&2; exit 1; }
-
-step "Starting EJSON decryption"
-
-# Pick env
-if [ -z "${EJSON_ENVIRONMENT:-}" ] && [ -z "${RAILS_ENV:-}" ]; then
-  fail "Neither EJSON_ENVIRONMENT nor RAILS_ENV set."
-fi
-EJSON_ENV=${EJSON_ENVIRONMENT:-$RAILS_ENV}
-step "Using environment: $EJSON_ENV"
-
-EJSON_FILE="config/secrets/${EJSON_ENV}.ejson"
-JSON_FILE="config/secrets/${EJSON_ENV}.json"
-
-if [ ! -f "$EJSON_FILE" ]; then
-  fail "Missing $EJSON_FILE"
+# Ensure EJSON_PRIVATE_KEY is set in environment at compile time
+if [ -z "${EJSON_PRIVATE_KEY:-}" ]; then
+  fail "EJSON_PRIVATE_KEY is not set at compile time"
 fi
 
-# Key setup
+# Create key for decryption
 mkdir -p /opt/ejson/keys
 PUBLIC_KEY=$(jq -r '._public_key' "$EJSON_FILE")
-
 if [ -z "$PUBLIC_KEY" ] || [ "$PUBLIC_KEY" == "null" ]; then
   fail "Could not extract _public_key from $EJSON_FILE"
 fi
-
-if [ -z "${EJSON_PRIVATE_KEY:-}" ]; then
-  fail "EJSON_PRIVATE_KEY is not set in environment"
-fi
-
 echo "$EJSON_PRIVATE_KEY" > "/opt/ejson/keys/$PUBLIC_KEY"
 step "Installed private key for public key $PUBLIC_KEY"
 
-# Decrypt
-if ! "$HOME/bin/ejson" decrypt "$EJSON_FILE" > "$JSON_FILE"; then
+# Decrypt .ejson into .json
+if ! "$BUILD_DIR/bin/ejson" decrypt "$EJSON_FILE" > "$JSON_FILE"; then
   fail "Decryption failed for $EJSON_FILE"
 fi
 
 step "Successfully decrypted $EJSON_FILE -> $JSON_FILE"
-EOF
-
-chmod +x "$PROFILED_DIR/50_ejson-decrypt.sh"
-step "Installed runtime hook in .profile.d/50_ejson-decrypt.sh"
-
 step "Compile phase finished"
