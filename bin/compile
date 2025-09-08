@@ -43,7 +43,7 @@ fi
 EJSON_VERSION=${EJSON_VERSION:-1.5.3}
 step "Installing EJSON v$EJSON_VERSION"
 
-mkdir -p "$BUILD_DIR/bin"
+mkdir -p "$BUILD_DIR/.heroku/bin"
 cd /tmp
 
 curl -s -L -o ejson.tar.gz \
@@ -54,9 +54,9 @@ if [ ! -f "ejson" ]; then
   fail "EJSON binary missing from tarball"
 fi
 
-mv ejson "$BUILD_DIR/bin/"
-chmod +x "$BUILD_DIR/bin/ejson"
-step "Installed ejson binary into slug bin/"
+mv ejson "$BUILD_DIR/.heroku/bin/"
+chmod +x "$BUILD_DIR/.heroku/bin/ejson"
+step "Installed ejson binary into slug .heroku/bin/"
 
 # 2. Install runtime hook
 PROFILED_DIR="$BUILD_DIR/.profile.d"
@@ -70,6 +70,11 @@ step() { echo "-----> [EJSON] $*"; }
 fail() { echo " !!    [EJSON] ERROR: $*" >&2; exit 1; }
 
 step "Starting EJSON decryption"
+
+# Debug (remove later if noisy)
+echo "PATH: $PATH"
+which ejson || true
+ejson --version || true
 
 # Pick env
 if [ -z "${EJSON_ENVIRONMENT:-}" ] && [ -z "${RAILS_ENV:-}" ]; then
@@ -101,7 +106,7 @@ echo "$EJSON_PRIVATE_KEY" > "/opt/ejson/keys/$PUBLIC_KEY"
 step "Installed private key for public key $PUBLIC_KEY"
 
 # Decrypt
-if ! "$HOME/bin/ejson" decrypt "$EJSON_FILE" > "$JSON_FILE"; then
+if ! ejson decrypt "$EJSON_FILE" > "$JSON_FILE"; then
   fail "Decryption failed for $EJSON_FILE"
 fi
 
