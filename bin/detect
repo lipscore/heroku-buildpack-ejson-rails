@@ -1,20 +1,45 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-step() { echo "-----> $*"; }
+LOG_FILE=".ejson-detect.log"
 
-step "DEBUG: Running EJSON buildpack detect phase"
-step "Current working directory: $(pwd)"
+# Always record a detailed snapshot of what detect sees
+{
+  echo "==== [EJSON] DETECT DEBUG $(date -u) ===="
+  echo "pwd: $(pwd)"
+  echo
+  echo "-- ls -la (app root) --"
+  ls -la || true
+  echo
+  if [ -d "config" ]; then
+    echo "-- ls -la config/ --"
+    ls -la config || true
+  else
+    echo "config/: MISSING"
+  fi
+  echo
+  if [ -d "config/secrets" ]; then
+    echo "-- ls -la config/secrets/ --"
+    ls -la config/secrets || true
+    echo
+    echo "-- .ejson files --"
+    ls config/secrets/*.ejson 2>/dev/null || echo "no .ejson files"
+  else
+    echo "config/secrets/: MISSING"
+  fi
+  echo "==== [EJSON] END DETECT DEBUG ===="
+} >> "$LOG_FILE" 2>&1 || true
 
-step "Top-level files:"
-ls -la || true
+# Debug mode: force detection success so compile runs and can print the log
+if [ "${EJSON_DEBUG_DETECT:-0}" = "1" ]; then
+  echo "EJSON"
+  exit 0
+fi
 
-step "Contents of config/:"
-ls -la config || true
-
-step "Contents of config/secrets/:"
-ls -la config/secrets || true
-
-# Force success so logs aren't hidden
-echo "EJSON"
-exit 0
+# Production detection
+if [ -d "config/secrets" ] && ls config/secrets/*.ejson >/dev/null 2>&1; then
+  echo "EJSON"
+  exit 0
+else
+  exit 1
+fi
