@@ -5,14 +5,47 @@ BUILD_DIR=$1
 CACHE_DIR=$2
 ENV_DIR=$3
 
-step() {
-  echo "-----> [EJSON] $*"
-}
+step() { echo "-----> [EJSON] $*"; }
+fail() { echo " !!    [EJSON] ERROR: $*" >&2; exit 1; }
 
-fail() {
-  echo " !!    [EJSON] ERROR: $*" >&2
-  exit 1
-}
+step "Compile phase started"
+step "BUILD_DIR: $BUILD_DIR"
+step "CACHE_DIR: $CACHE_DIR"
+step "ENV_DIR:   $ENV_DIR"
+
+# Show what detect captured (from app root at detect time)
+if [ -f "$BUILD_DIR/.ejson-detect.log" ]; then
+  step "bin/detect debug output:"
+  sed 's/^/       /' "$BUILD_DIR/.ejson-detect.log" || true
+else
+  fail "No .ejson-detect.log found; detect may not have written it"
+fi
+
+# Show current build view
+step "Top-level contents of BUILD_DIR:"
+ls -la "$BUILD_DIR" || true
+
+if [ -d "$BUILD_DIR/config" ]; then
+  step "Contents of config/:"
+  ls -la "$BUILD_DIR/config" || true
+else
+  fail "config/ not present in BUILD_DIR"
+fi
+
+if [ -d "$BUILD_DIR/config/secrets" ]; then
+  step "Contents of config/secrets/:"
+  ls -la "$BUILD_DIR/config/secrets" || true
+else
+  fail "config/secrets/ not present in BUILD_DIR"
+fi
+
+EJSON_MATCH=$(ls "$BUILD_DIR"/config/secrets/*.ejson 2>/dev/null || true)
+if [ -n "$EJSON_MATCH" ]; then
+  step "Detected .ejson files:"
+  echo "$EJSON_MATCH" | sed 's/^/       /'
+else
+  fail "No .ejson files under $BUILD_DIR/config/secrets"
+fi
 
 # 1. Install EJSON binary
 EJSON_VERSION=${EJSON_VERSION:-1.5.3}
@@ -22,6 +55,11 @@ cd /tmp
 curl -s -L -o ejson.deb "https://github.com/Shopify/ejson/releases/download/v${EJSON_VERSION}/ejson_${EJSON_VERSION}_linux_amd64.deb"
 dpkg -x ejson.deb ejsonpkg
 mkdir -p "$BUILD_DIR/bin"
+
+if [ ! -f "ejsonpkg/usr/local/bin/ejson" ]; then
+  fail "EJSON binary not found in extracted package"
+fi
+
 cp ejsonpkg/usr/local/bin/ejson "$BUILD_DIR/bin/"
 chmod +x "$BUILD_DIR/bin/ejson"
 step "Installed ejson binary into slug bin/"
@@ -31,15 +69,11 @@ PROFILED_DIR="$BUILD_DIR/.profile.d"
 mkdir -p "$PROFILED_DIR"
 
 cat > "$PROFILED_DIR/50_ejson-decrypt.sh" <<'EOF'
+#!/usr/bin/env bash
+set -euo pipefail
 
-step() {
-  echo "-----> [EJSON] $*"
-}
-
-fail() {
-  echo " !!    [EJSON] ERROR: $*" >&2
-  exit 1
-}
+step() { echo "-----> [EJSON] $*"; }
+fail() { echo " !!    [EJSON] ERROR: $*" >&2; exit 1; }
 
 step "Starting EJSON decryption"
 
@@ -82,3 +116,5 @@ EOF
 
 chmod +x "$PROFILED_DIR/50_ejson-decrypt.sh"
 step "Installed runtime hook in .profile.d/50_ejson-decrypt.sh"
+
+step "Compile phase finished"
